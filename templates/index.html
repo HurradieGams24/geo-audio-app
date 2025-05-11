@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Was ist das hier?</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2rem;
+      background-color: #f9f9f9;
+    }
+    button, select {
+      font-size: 1.2rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: none;
+      margin: 0.5rem;
+    }
+    #lookupBtn {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    #info {
+      margin-top: 2rem;
+      font-size: 1.2rem;
+    }
+    .language-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .flag {
+      font-size: 1.5rem;
+    }
+    audio {
+      margin-top: 1rem;
+    }
+    #hint {
+      margin-top: 1rem;
+      color: #888;
+      font-size: 1rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Was ist das hier?</h1>
+
+  <div class="language-selector">
+    <label for="languageSelect">🌐 Sprache wählen:</label>
+    <select id="languageSelect">
+      <option value="de" selected>🇩🇪 Deutsch</option>
+      <option value="en">🇬🇧 Englisch</option>
+      <option value="fr">🇫🇷 Französisch</option>
+      <option value="es">🇪🇸 Spanisch</option>
+    </select>
+  </div>
+
+  <button id="lookupBtn">🔍 Was ist das hier?</button>
+  <button id="testAudioBtn">🎧 Test-Audio abspielen</button>
+  <div id="info"></div>
+  <audio id="audioPlayer" controls preload="auto" style="display:none"></audio>
+  <button id="replayBtn" style="display:none">🔁 Noch einmal abspielen</button>
+  <div id="hint">🎧 Tippe auf ▶, um die Audiowiedergabe zu starten</div>
+
+  <script>
+    const button = document.getElementById('lookupBtn');
+    const testButton = document.getElementById('testAudioBtn');
+    const infoDiv = document.getElementById('info');
+    const languageSelect = document.getElementById('languageSelect');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const replayBtn = document.getElementById('replayBtn');
+    const hint = document.getElementById('hint');
+
+    button.addEventListener('click', () => {
+      const selectedLang = languageSelect.value;
+      infoDiv.innerHTML = "⏳ Standort wird ermittelt...";
+      audioPlayer.style.display = 'none';
+      replayBtn.style.display = 'none';
+      hint.style.display = 'none';
+
+      if (!navigator.geolocation) {
+        infoDiv.innerHTML = "❌ Geolocation wird von deinem Browser nicht unterstützt.";
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        infoDiv.innerHTML = `📍 Standort: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>🔎 Suche nach Infos...`;
+
+        const url = `https://${selectedLang}.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=100&gscoord=${lat}%7C${lon}&gslimit=1&format=json&origin=*`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.query.geosearch.length === 0) {
+          infoDiv.innerHTML = "❌ Kein passender Ort in der Nähe gefunden.";
+          return;
+        }
+
+        const pageTitle = data.query.geosearch[0].title;
+        infoDiv.innerHTML = `📘 <strong>${pageTitle}</strong><br>⏳ Lade Zusammenfassung...`;
+
+        try {
+          const flaskResponse = await fetch("http://127.0.0.1:5000/summarize", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ title: pageTitle, lang: selectedLang })
+          });
+
+          const result = await flaskResponse.json();
+
+          if (result.error) {
+            infoDiv.innerHTML = `❌ Fehler beim Zusammenfassen: ${result.error}`;
+            return;
+          }
+
+          const summary = result.summary;
+          const audioUrl = result.audio_url;
+
+          infoDiv.innerHTML = `<strong>${pageTitle}</strong><br>${summary}`;
+          const fullAudioUrl = "http://127.0.0.1:5000" + audioUrl;
+          console.log("📎 MP3-Link:", fullAudioUrl);
+
+          audioPlayer.src = fullAudioUrl;
+          audioPlayer.load();
+          audioPlayer.style.display = 'block';
+          replayBtn.style.display = 'inline-block';
+          hint.style.display = 'block';
+
+          audioPlayer.play().then(() => {
+            hint.style.display = 'none';
+          }).catch(err => {
+            console.warn("Autoplay blockiert:", err);
+            hint.style.display = 'block';
+          });
+
+        } catch (error) {
+          infoDiv.innerHTML = `❌ Serverfehler: ${error.message}`;
+        }
+
+      }, () => {
+        infoDiv.innerHTML = "❌ Standort konnte nicht ermittelt werden.";
+      });
+    });
+
+    testButton.addEventListener('click', () => {
+      const testUrl = "http://127.0.0.1:5000/static/audio/test.mp3"; // Lege test.mp3 manuell ab
+      audioPlayer.src = testUrl;
+      audioPlayer.load();
+      audioPlayer.style.display = 'block';
+      replayBtn.style.display = 'inline-block';
+      hint.style.display = 'block';
+      audioPlayer.play().then(() => {
+        hint.style.display = 'none';
+      }).catch(err => {
+        console.warn("Autoplay blockiert:", err);
+        hint.style.display = 'block';
+      });
+    });
+
+    replayBtn.addEventListener('click', () => {
+      audioPlayer.currentTime = 0;
+      audioPlayer.play();
+    });
+  </script>
+</body>
+</html>
