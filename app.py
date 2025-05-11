@@ -6,7 +6,10 @@ import os
 import time
 from google.cloud import texttospeech
 
-# === Hilfsfunktion: Alte MP3-Dateien löschen ===
+# ✅ Lade GOOGLE_APPLICATION_CREDENTIALS dynamisch von Render
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+# === Alte MP3-Dateien regelmäßig bereinigen ===
 def cleanup_old_files(folder_path, max_age_days=3):
     now = time.time()
     cutoff = now - (max_age_days * 86400)
@@ -21,8 +24,7 @@ def cleanup_old_files(folder_path, max_age_days=3):
             except Exception as e:
                 print(f"⚠️ Fehler beim Löschen von {filepath}: {e}")
 
-# === Google Cloud TTS Initialisierung ===
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
+# === Google TTS initialisieren ===
 tts_client = texttospeech.TextToSpeechClient()
 
 # === Flask Setup ===
@@ -47,11 +49,11 @@ def summarize():
         page = wikipedia.page(title)
         text = page.content
 
-        # Kürze Text auf max. 5 Sätze
+        # ✂️ Kürzen auf max. 5 Sätze
         summary = '. '.join(text.split('. ')[:5]) + '.'
         print("🧠 Zusammenfassung:", summary)
 
-        # TTS-Konfiguration je nach Sprache
+        # 🔊 Sprache auswählen
         lang_map = {
             "de": ("de-DE", "de-DE-Wavenet-F"),
             "en": ("en-US", "en-US-Wavenet-D"),
@@ -70,7 +72,6 @@ def summarize():
             audio_config=audio_config
         )
 
-        # MP3 speichern
         filename = f"{uuid.uuid4().hex}.mp3"
         output_dir = os.path.join("static", "audio")
         os.makedirs(output_dir, exist_ok=True)
@@ -91,12 +92,12 @@ def summarize():
         print("❌ Fehler:", e)
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
 
-# MP3-Dateien ausliefern
+# 🎧 MP3-Dateien direkt ausliefern
 @app.route("/audio/<filename>")
 def get_audio(filename):
     return send_from_directory("static/audio", filename)
 
-# === Flask starten ===
+# === Startpunkt ===
 if __name__ == "__main__":
     audio_folder = os.path.join("static", "audio")
     os.makedirs(audio_folder, exist_ok=True)
