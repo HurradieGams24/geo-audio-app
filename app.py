@@ -1,4 +1,12 @@
+import os
 import base64
+import wikipedia
+import uuid
+import time
+from flask import Flask, request, jsonify, send_from_directory, render_template
+from flask_cors import CORS
+from google.cloud import texttospeech
+
 
 # Lade Base64-Inhalt und speichere temporäre Datei
 creds_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
