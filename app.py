@@ -1,3 +1,14 @@
+import base64
+
+# Lade Base64-Inhalt und speichere temporäre Datei
+creds_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+if creds_b64:
+    creds_json = base64.b64decode(creds_b64).decode("utf-8")
+    with open("temp_google_credentials.json", "w") as f:
+        f.write(creds_json)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "temp_google_credentials.json"
+
+
 from flask import Flask, request, jsonify, send_from_directory, render_template
 from flask_cors import CORS
 import wikipedia
