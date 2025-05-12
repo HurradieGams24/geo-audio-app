@@ -62,6 +62,7 @@
 
   <button id="lookupBtn">🔍 Was ist das hier?</button>
   <button id="testAudioBtn">🎧 Test-Audio abspielen</button>
+
   <div id="info"></div>
   <audio id="audioPlayer" controls preload="auto" style="display:none"></audio>
   <button id="replayBtn" style="display:none">🔁 Noch einmal abspielen</button>
@@ -107,7 +108,7 @@
         infoDiv.innerHTML = `📘 <strong>${pageTitle}</strong><br>⏳ Lade Zusammenfassung...`;
 
         try {
-          const flaskResponse = await fetch("http://127.0.0.1:5000/summarize", {
+          const flaskResponse = await fetch("/summarize", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -126,10 +127,7 @@
           const audioUrl = result.audio_url;
 
           infoDiv.innerHTML = `<strong>${pageTitle}</strong><br>${summary}`;
-          const fullAudioUrl = "http://127.0.0.1:5000" + audioUrl;
-          console.log("📎 MP3-Link:", fullAudioUrl);
-
-          audioPlayer.src = fullAudioUrl;
+          audioPlayer.src = audioUrl;
           audioPlayer.load();
           audioPlayer.style.display = 'block';
           replayBtn.style.display = 'inline-block';
@@ -152,7 +150,7 @@
     });
 
     testButton.addEventListener('click', () => {
-      const testUrl = "http://127.0.0.1:5000/static/audio/test.mp3"; // Lege test.mp3 manuell ab
+      const testUrl = "/static/audio/test.mp3"; // Muss manuell vorhanden sein
       audioPlayer.src = testUrl;
       audioPlayer.load();
       audioPlayer.style.display = 'block';
