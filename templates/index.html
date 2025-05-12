@@ -78,133 +78,73 @@
     const hint = document.getElementById('hint');
 
     button.addEventListener('click', () => {
-  const selectedLang = languageSelect.value;
-  infoDiv.innerHTML = "⏳ Standort wird ermittelt...";
-  audioPlayer.style.display = 'none';
-  replayBtn.style.display = 'none';
-  hint.style.display = 'none';
+      const selectedLang = languageSelect.value;
+      infoDiv.innerHTML = "⏳ Standort wird ermittelt...";
+      audioPlayer.style.display = 'none';
+      replayBtn.style.display = 'none';
+      hint.style.display = 'none';
 
-  if (!navigator.geolocation) {
-    infoDiv.innerHTML = "❌ Geolocation wird von deinem Browser nicht unterstützt.";
-    return;
-  }
+      if (!navigator.geolocation) {
+        infoDiv.innerHTML = "❌ Geolocation wird von deinem Browser nicht unterstützt.";
+        return;
+      }
 
-  // ⬇️ Wichtig: direkt im Button-Event auslösen!
-  navigator.geolocation.getCurrentPosition(position => {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-
-    infoDiv.innerHTML = `📍 Standort: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>🔎 Suche nach Infos...`;
-
-    const url = `https://${selectedLang}.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=100&gscoord=${lat}%7C${lon}&gslimit=1&format=json&origin=*`;
-
-    fetch(url)
-      .then(response => response.json())
-      .then(data => {
-        if (data.query.geosearch.length === 0) {
-          infoDiv.innerHTML = "❌ Kein passender Ort in der Nähe gefunden.";
-          return;
-        }
-
-        const pageTitle = data.query.geosearch[0].title;
-        infoDiv.innerHTML = `📘 <strong>${pageTitle}</strong><br>⏳ Lade Zusammenfassung...`;
-
-        fetch("/summarize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: pageTitle, lang: selectedLang })
-        })
-          .then(res => res.json())
-          .then(result => {
-            if (result.error) {
-              infoDiv.innerHTML = `❌ Fehler beim Zusammenfassen: ${result.error}`;
-              return;
-            }
-
-            const summary = result.summary;
-            const audioUrl = result.audio_url;
-
-            infoDiv.innerHTML = `<strong>${pageTitle}</strong><br>${summary}`;
-            audioPlayer.src = audioUrl;
-            audioPlayer.load();
-            audioPlayer.style.display = 'block';
-            replayBtn.style.display = 'inline-block';
-            hint.style.display = 'block';
-
-            audioPlayer.play().then(() => {
-              hint.style.display = 'none';
-            }).catch(err => {
-              console.warn("Autoplay blockiert:", err);
-              hint.style.display = 'block';
-            });
-          });
-      });
-  }, error => {
-    infoDiv.innerHTML = "❌ Standort konnte nicht ermittelt werden: " + error.message;
-  });
-});
-
+      navigator.geolocation.getCurrentPosition(position => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
 
         infoDiv.innerHTML = `📍 Standort: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>🔎 Suche nach Infos...`;
 
         const url = `https://${selectedLang}.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=100&gscoord=${lat}%7C${lon}&gslimit=1&format=json&origin=*`;
-        const response = await fetch(url);
-        const data = await response.json();
 
-        if (data.query.geosearch.length === 0) {
-          infoDiv.innerHTML = "❌ Kein passender Ort in der Nähe gefunden.";
-          return;
-        }
+        fetch(url)
+          .then(response => response.json())
+          .then(data => {
+            if (data.query.geosearch.length === 0) {
+              infoDiv.innerHTML = "❌ Kein passender Ort in der Nähe gefunden.";
+              return;
+            }
 
-        const pageTitle = data.query.geosearch[0].title;
-        infoDiv.innerHTML = `📘 <strong>${pageTitle}</strong><br>⏳ Lade Zusammenfassung...`;
+            const pageTitle = data.query.geosearch[0].title;
+            infoDiv.innerHTML = `📘 <strong>${pageTitle}</strong><br>⏳ Lade Zusammenfassung...`;
 
-        try {
-          const flaskResponse = await fetch("/summarize", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ title: pageTitle, lang: selectedLang })
+            fetch("/summarize", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title: pageTitle, lang: selectedLang })
+            })
+              .then(res => res.json())
+              .then(result => {
+                if (result.error) {
+                  infoDiv.innerHTML = `❌ Fehler beim Zusammenfassen: ${result.error}`;
+                  return;
+                }
+
+                const summary = result.summary;
+                const audioUrl = result.audio_url;
+
+                infoDiv.innerHTML = `<strong>${pageTitle}</strong><br>${summary}`;
+                audioPlayer.src = audioUrl;
+                audioPlayer.load();
+                audioPlayer.style.display = 'block';
+                replayBtn.style.display = 'inline-block';
+                hint.style.display = 'block';
+
+                audioPlayer.play().then(() => {
+                  hint.style.display = 'none';
+                }).catch(err => {
+                  console.warn("Autoplay blockiert:", err);
+                  hint.style.display = 'block';
+                });
+              });
           });
-
-          const result = await flaskResponse.json();
-
-          if (result.error) {
-            infoDiv.innerHTML = `❌ Fehler beim Zusammenfassen: ${result.error}`;
-            return;
-          }
-
-          const summary = result.summary;
-          const audioUrl = result.audio_url;
-
-          infoDiv.innerHTML = `<strong>${pageTitle}</strong><br>${summary}`;
-          audioPlayer.src = audioUrl;
-          audioPlayer.load();
-          audioPlayer.style.display = 'block';
-          replayBtn.style.display = 'inline-block';
-          hint.style.display = 'block';
-
-          audioPlayer.play().then(() => {
-            hint.style.display = 'none';
-          }).catch(err => {
-            console.warn("Autoplay blockiert:", err);
-            hint.style.display = 'block';
-          });
-
-        } catch (error) {
-          infoDiv.innerHTML = `❌ Serverfehler: ${error.message}`;
-        }
-
-      }, () => {
-        infoDiv.innerHTML = "❌ Standort konnte nicht ermittelt werden.";
+      }, error => {
+        infoDiv.innerHTML = "❌ Standort konnte nicht ermittelt werden: " + error.message;
       });
     });
 
     testButton.addEventListener('click', () => {
-      const testUrl = "/static/audio/test.mp3"; // Muss manuell vorhanden sein
+      const testUrl = "/static/audio/test.mp3";
       audioPlayer.src = testUrl;
       audioPlayer.load();
       audioPlayer.style.display = 'block';
