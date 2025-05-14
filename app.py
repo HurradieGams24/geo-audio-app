@@ -11,8 +11,17 @@ from PIL import Image
 import io
 
 # === GOOGLE API SETUP ===
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
+import tempfile
+
+creds_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+if creds_b64:
+    decoded = base64.b64decode(creds_b64).decode("utf-8")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w") as tmp:
+        tmp.write(decoded)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
+
 tts_client = texttospeech.TextToSpeechClient()
+
 
 # === FLASK APP ===
 app = Flask(__name__, static_url_path='/static')
