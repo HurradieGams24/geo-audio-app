@@ -23,6 +23,11 @@
       color: white;
       cursor: pointer;
     }
+    #uploadBtn {
+      background-color: #28a745;
+      color: white;
+      cursor: pointer;
+    }
     #info {
       margin-top: 2rem;
       font-size: 1.2rem;
@@ -32,9 +37,6 @@
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 1rem;
-    }
-    .flag {
-      font-size: 1.5rem;
     }
     audio {
       margin-top: 1rem;
@@ -60,8 +62,10 @@
     </select>
   </div>
 
-  <button id="lookupBtn">🔍 Was ist das hier?</button>
-  <button id="testAudioBtn">🎧 Test-Audio abspielen</button>
+  <button id="lookupBtn">🔍 Per Standort</button>
+  <button id="uploadBtn">📷 Foto hochladen</button>
+
+  <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" />
 
   <div id="info"></div>
   <audio id="audioPlayer" controls preload="auto" style="display:none"></audio>
@@ -70,19 +74,26 @@
 
   <script>
     const button = document.getElementById('lookupBtn');
-    const testButton = document.getElementById('testAudioBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const photoInput = document.getElementById('photoInput');
     const infoDiv = document.getElementById('info');
     const languageSelect = document.getElementById('languageSelect');
     const audioPlayer = document.getElementById('audioPlayer');
     const replayBtn = document.getElementById('replayBtn');
     const hint = document.getElementById('hint');
 
-    button.addEventListener('click', () => {
-      const selectedLang = languageSelect.value;
-      infoDiv.innerHTML = "⏳ Standort wird ermittelt...";
+    function resetAudio() {
+      audioPlayer.pause();
+      audioPlayer.currentTime = 0;
       audioPlayer.style.display = 'none';
       replayBtn.style.display = 'none';
       hint.style.display = 'none';
+    }
+
+    button.addEventListener('click', () => {
+      const selectedLang = languageSelect.value;
+      infoDiv.innerHTML = "⏳ Standort wird ermittelt...";
+      resetAudio();
 
       if (!navigator.geolocation) {
         infoDiv.innerHTML = "❌ Geolocation wird von deinem Browser nicht unterstützt.";
@@ -92,8 +103,6 @@
       navigator.geolocation.getCurrentPosition(position => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
-
-        infoDiv.innerHTML = `📍 Standort: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>🔎 Suche nach Infos...`;
 
         const url = `https://${selectedLang}.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=100&gscoord=${lat}%7C${lon}&gslimit=1&format=json&origin=*`;
 
@@ -120,20 +129,15 @@
                   return;
                 }
 
-                const summary = result.summary;
-                const audioUrl = result.audio_url;
-
-                infoDiv.innerHTML = `<strong>${pageTitle}</strong><br>${summary}`;
-                audioPlayer.src = audioUrl;
+                infoDiv.innerHTML = `<strong>${pageTitle}</strong><br>${result.summary}`;
+                audioPlayer.src = result.audio_url;
                 audioPlayer.load();
                 audioPlayer.style.display = 'block';
                 replayBtn.style.display = 'inline-block';
                 hint.style.display = 'block';
-
                 audioPlayer.play().then(() => {
                   hint.style.display = 'none';
-                }).catch(err => {
-                  console.warn("Autoplay blockiert:", err);
+                }).catch(() => {
                   hint.style.display = 'block';
                 });
               });
@@ -143,17 +147,44 @@
       });
     });
 
-    testButton.addEventListener('click', () => {
-      const testUrl = "/static/audio/test.mp3";
-      audioPlayer.src = testUrl;
+    uploadBtn.addEventListener('click', () => {
+      photoInput.click();
+    });
+
+    photoInput.addEventListener('change', async () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+
+      const selectedLang = languageSelect.value;
+      infoDiv.innerHTML = "📷 Bild wird analysiert...";
+      resetAudio();
+
+      const formData = new FormData();
+      formData.append("photo", file);
+      formData.append("lang", selectedLang);
+
+      console.log("📷 Sende Bild zur Analyse...");
+
+      const response = await fetch("/analyze-photo", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await response.json();
+      if (result.error) {
+        infoDiv.innerHTML = `❌ Fehler bei Analyse: ${result.error}`;
+        return;
+      }
+
+      infoDiv.innerHTML = `<strong>${result.title}</strong><br>${result.summary}`;
+      audioPlayer.src = result.audio_url;
       audioPlayer.load();
       audioPlayer.style.display = 'block';
       replayBtn.style.display = 'inline-block';
       hint.style.display = 'block';
       audioPlayer.play().then(() => {
         hint.style.display = 'none';
-      }).catch(err => {
-        console.warn("Autoplay blockiert:", err);
+      }).catch(() => {
         hint.style.display = 'block';
       });
     });
@@ -165,3 +196,4 @@
   </script>
 </body>
 </html>
+
