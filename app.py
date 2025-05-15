@@ -50,9 +50,17 @@ def summarize():
 def analyze_photo():
     try:
         print("🚀 /analyze-photo wurde aufgerufen")
+
         lang = request.form.get("lang", "de")
-        file = request.files["photo"]
+        file = request.files.get("photo")
+
+        if not file:
+            return jsonify({"error": "Kein Bild empfangen."}), 400
+
+        print(f"📷 Empfangenes Bild: {file.filename}, Content-Type: {file.content_type}")
+
         image_bytes = file.read()
+        print(f"📦 Bildgröße: {len(image_bytes)} Bytes")
 
         detected_title = detect_landmark_with_google(image_bytes)
         print(f"🔍 Erkanntes Objekt: {detected_title}")
@@ -76,6 +84,7 @@ def analyze_photo():
     except Exception as e:
         print(f"❌ Fehler bei Analyse: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 def generate_tts(text, lang):
     lang_map = {
