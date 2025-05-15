@@ -50,17 +50,13 @@ def summarize():
 def analyze_photo():
     try:
         print("🚀 /analyze-photo wurde aufgerufen")
-
         lang = request.form.get("lang", "de")
-        file = request.files.get("photo")
-
-        if not file:
-            return jsonify({"error": "Kein Bild empfangen."}), 400
-
-        print(f"📷 Empfangenes Bild: {file.filename}, Content-Type: {file.content_type}")
-
+        file = request.files["photo"]
         image_bytes = file.read()
-        print(f"📦 Bildgröße: {len(image_bytes)} Bytes")
+
+        # 🧪 Debug-Ausgabe hinzufügen
+        print(f"📷 Empfangene Bildgröße: {len(image_bytes)} Bytes")
+        print(f"🧪 Erste 10 Bytes: {image_bytes[:10]}")
 
         detected_title = detect_landmark_with_google(image_bytes)
         print(f"🔍 Erkanntes Objekt: {detected_title}")
@@ -84,7 +80,6 @@ def analyze_photo():
     except Exception as e:
         print(f"❌ Fehler bei Analyse: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 def generate_tts(text, lang):
     lang_map = {
@@ -118,6 +113,9 @@ def detect_landmark_with_google(image_bytes):
         response = vision_client.landmark_detection(image=image)
         landmarks = response.landmark_annotations
         if landmarks:
+            print("🌍 Erkannte Landmarks:")
+            for lm in landmarks:
+                print(f" - {lm.description} (Score: {lm.score})")
             return landmarks[0].description
         return None
     except Exception as e:
