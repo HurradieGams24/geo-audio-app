@@ -6,22 +6,14 @@ import os
 import base64
 import requests
 
-from google.cloud import texttospeech
+from google.cloud import texttospeech, vision
 from PIL import Image
 import io
 
 # === GOOGLE API SETUP ===
-import tempfile
-
-creds_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
-if creds_b64:
-    decoded = base64.b64decode(creds_b64).decode("utf-8")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w") as tmp:
-        tmp.write(decoded)
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
-
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
 tts_client = texttospeech.TextToSpeechClient()
-
+vision_client = vision.ImageAnnotatorClient()
 
 # === FLASK APP ===
 app = Flask(__name__, static_url_path='/static')
@@ -57,7 +49,7 @@ def analyze_photo():
         file = request.files["photo"]
         image_bytes = file.read()
 
-        detected_title = detect_landmark_with_placeholder(image_bytes)
+        detected_title = detect_landmark_with_google(image_bytes)
         print(f"🔍 Erkanntes Objekt: {detected_title}")
 
         if not detected_title:
@@ -106,9 +98,17 @@ def generate_tts(text, lang):
 
     return filename
 
-def detect_landmark_with_placeholder(image_bytes):
-    print("🖼️ Dummy-Erkennung aktiv – gebe fixen Titel zurück")
-    return "Eiffelturm"  # Für Tests: Sicher ein Wikipedia-Artikel vorhanden
+def detect_landmark_with_google(image_bytes):
+    try:
+        image = vision.Image(content=image_bytes)
+        response = vision_client.landmark_detection(image=image)
+        landmarks = response.landmark_annotations
+        if landmarks:
+            return landmarks[0].description
+        return None
+    except Exception as e:
+        print(f"❌ Vision API Fehler: {e}")
+        return None
 
 if __name__ == "__main__":
     app.run(debug=True)
