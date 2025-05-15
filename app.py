@@ -10,8 +10,13 @@ from google.cloud import texttospeech, vision
 from PIL import Image
 import io
 
-# === GOOGLE API SETUP ===
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
+# === GOOGLE API SETUP (für Render via Base64) ===
+creds_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+creds_json = base64.b64decode(creds_b64).decode("utf-8")
+
+with open("google-credentials.json", "w") as f:
+    f.write(creds_json)
+
 tts_client = texttospeech.TextToSpeechClient()
 vision_client = vision.ImageAnnotatorClient()
 
