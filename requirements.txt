@@ -4,3 +4,5 @@ wikipedia
 google-cloud-texttospeech
 gunicorn
 Pillow
+google-cloud-vision==3.10.0
+
