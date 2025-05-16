@@ -11,11 +11,19 @@ from PIL import Image
 import io
 
 # === GOOGLE API SETUP (für Render via Base64) ===
+# === GOOGLE API SETUP ===
 creds_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
-creds_json = base64.b64decode(creds_b64).decode("utf-8")
 
-with open("google-credentials.json", "w") as f:
-    f.write(creds_json)
+if creds_b64:
+    print("🛰️ Starte mit Render-Credentials...")
+    creds_json = base64.b64decode(creds_b64).decode("utf-8")
+    with open("google-credentials.json", "w") as f:
+        f.write(creds_json)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
+else:
+    print("💻 Lokaler Modus – verwende bestehende Datei")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
+
 
 tts_client = texttospeech.TextToSpeechClient()
 vision_client = vision.ImageAnnotatorClient()
