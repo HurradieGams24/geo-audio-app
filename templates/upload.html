@@ -3,25 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <title>Geo Audio App – Bild hochladen</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+        }
+        select, input[type="file"] {
+            margin-top: 5px;
+        }
+    </style>
 </head>
 <body>
     <h1>Geo Audio App – Bild hochladen</h1>
 
     <form action="/upload" method="post" enctype="multipart/form-data">
-        <label for="image">📷 Wähle ein Bild aus:</label><br>
-        <input type="file" name="image" id="image" required><br><br>
+        <p>📍 <strong>Standort verwenden:</strong></p>
+        <button type="button" onclick="getLocation()">📡 Aktuellen Standort ermitteln</button>
+        <br><br>
 
-        <label for="manual_landmark">📍 Falls keine GPS-Daten vorhanden sind: Wähle eine Landmark aus</label><br>
-        <select name="manual_landmark" id="manual_landmark">
+        <p>📷 <strong>Bild auswählen:</strong></p>
+        <input type="file" name="image" accept="image/*" capture="environment" required>
+        <br><br>
+
+        <p>📌 <strong>Falls keine GPS-Daten im Bild vorhanden sind: Wähle eine Landmark manuell</strong></p>
+        <select name="manual_landmark">
             <option value="">– bitte auswählen –</option>
             <option value="Karlskirche">Karlskirche</option>
             <option value="Stephansdom">Stephansdom</option>
             <option value="Wiener Rathaus">Wiener Rathaus</option>
             <option value="Schloss Schönbrunn">Schloss Schönbrunn</option>
             <option value="Belvedere">Belvedere</option>
-        </select><br><br>
+        </select>
+        <br><br>
 
-        <button type="submit">Hochladen & analysieren</button>
+        <button type="submit">📤 Hochladen & analysieren</button>
     </form>
+
+    <script>
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    alert("Standort erfasst: " + position.coords.latitude + ", " + position.coords.longitude + "\\n(Dieser wird derzeit noch nicht verwendet – GPS kommt aus Bilddaten.)");
+                }, function(error) {
+                    alert("Fehler beim Abrufen des Standorts.");
+                });
+            } else {
+                alert("Geolocation wird von diesem Browser nicht unterstützt.");
+            }
+        }
+    </script>
 </body>
 </html>
