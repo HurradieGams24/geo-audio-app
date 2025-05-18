@@ -1,10 +1,13 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import os
 import json
 import wikipedia
 from werkzeug.utils import secure_filename
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
+import base64
+import io
+import requests
 
 app = Flask(__name__)
 
@@ -13,14 +16,13 @@ UPLOAD_FOLDER = "static/uploads"
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "heic"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Stelle sicher, dass Upload-Verzeichnis existiert
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Lade landmarks.json
+# Lade Landmark-Daten
 with open("landmarks.json", "r", encoding="utf-8") as f:
     landmarks = json.load(f)
 
-# -------------------- Hilfsfunktionen --------------------
+# Hilfsfunktionen
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -74,11 +76,35 @@ def get_structured_summary(title):
     except Exception as e:
         return f"<p>Fehler beim Laden der Wikipedia-Zusammenfassung für <strong>{title}</strong>: {str(e)}</p>"
 
-def get_summary_from_vision_or_default(image):
-    # Platzhalter: Vision API oder default summary
-    return "<p>(Vision API-Auswertung kommt hier rein.)</p>"
+def analyze_with_vision_api(image_path):
+    try:
+        with open(image_path, "rb") as image_file:
+            content = base64.b64encode(image_file.read()).decode("utf-8")
 
-# -------------------- Flask-Routen --------------------
+        api_key = os.environ.get("GOOGLE_VISION_API_KEY")
+        if not api_key:
+            return None
+
+        url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {
+            "requests": [
+                {
+                    "image": {"content": content},
+                    "features": [{"type": "LABEL_DETECTION", "maxResults": 5}]
+                }
+            ]
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        labels = response.json()["responses"][0].get("labelAnnotations", [])
+        return [label["description"] for label in labels]
+    except Exception as e:
+        print(f"Vision API Fehler: {e}")
+        return []
+
+# Routen
 
 @app.route("/")
 def index():
@@ -101,7 +127,6 @@ def upload_image():
         gps_coords = extract_gps_from_exif(filepath)
         landmark = find_landmark_by_coords(gps_coords) if gps_coords else None
 
-        # NEU: Manuelle Auswahl verarbeiten, falls kein GPS vorhanden
         manual_landmark = request.form.get("manual_landmark")
         if not landmark and manual_landmark:
             landmark = find_landmark_by_name(manual_landmark)
@@ -109,7 +134,8 @@ def upload_image():
         if landmark:
             summary = get_structured_summary(landmark["name"])
         else:
-            summary = get_summary_from_vision_or_default(file)
+            labels = analyze_with_vision_api(filepath)
+            summary = f"<p>Keine Landmark gefunden. Vision-Labels: {', '.join(labels)}</p>"
 
         return render_template("result.html", summary=summary)
 
