@@ -83,7 +83,7 @@ def analyze_with_vision_api(image_path):
 
         api_key = os.environ.get("GOOGLE_VISION_API_KEY")
         if not api_key:
-            return None
+            return []
 
         url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
         headers = {"Content-Type": "application/json"}
@@ -134,11 +134,9 @@ def upload_image():
         if landmark:
             summary = get_structured_summary(landmark["name"])
         else:
-            else:
-                labels = analyze_with_vision_api(filepath) or []
-                print(f"Vision-Ergebnis (Fallback): {labels}")
-                summary = f"<p>Keine Landmark gefunden. Vision-Labels: {', '.join(labels) if labels else 'keine erkennbar'}</p>"
-
+            labels = analyze_with_vision_api(filepath) or []
+            print(f"Vision-Ergebnis (Fallback): {labels}")
+            summary = f"<p>Keine Landmark gefunden. Vision-Labels: {', '.join(labels) if labels else 'keine erkennbar'}</p>"
 
         return render_template("result.html", summary=summary)
 
@@ -146,3 +144,4 @@ def upload_image():
 
 if __name__ == "__main__":
     app.run(debug=True)
+    
