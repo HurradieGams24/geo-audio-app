@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Wiener Rathaus",
+    "lat": 48.2104,
+    "lon": 16.3576,
+    "summary": "Das Wiener Rathaus ist ein bedeutendes historisches Gebäude am Rathausplatz in Wien. Es wurde im Stil der Neogotik errichtet und dient als Sitz des Bürgermeisters und der Stadtverwaltung."
+  },
+  {
+    "name": "Stephansdom",
+    "lat": 48.2082,
+    "lon": 16.3738,
+    "summary": "Der Stephansdom ist das bekannteste Wahrzeichen Wiens. Er befindet sich im Zentrum der Stadt und beeindruckt durch seine gotische Architektur und den markanten Südturm."
+  },
+  {
+    "name": "Schloss Schönbrunn",
+    "lat": 48.1845,
+    "lon": 16.3122,
+    "summary": "Schloss Schönbrunn war die Sommerresidenz der Habsburger. Es zählt zu den bedeutendsten Kulturgütern Österreichs und gehört zum UNESCO-Weltkulturerbe."
+  },
+  {
+    "name": "Belvedere",
+    "lat": 48.1914,
+    "lon": 16.3803,
+    "summary": "Das Belvedere ist ein barockes Schlossensemble in Wien und beherbergt heute eine bedeutende Kunstsammlung, darunter Werke von Gustav Klimt."
+  }
+]
