@@ -134,8 +134,11 @@ def upload_image():
         if landmark:
             summary = get_structured_summary(landmark["name"])
         else:
-            labels = analyze_with_vision_api(filepath)
-            summary = f"<p>Keine Landmark gefunden. Vision-Labels: {', '.join(labels)}</p>"
+            else:
+                labels = analyze_with_vision_api(filepath) or []
+                print(f"Vision-Ergebnis (Fallback): {labels}")
+                summary = f"<p>Keine Landmark gefunden. Vision-Labels: {', '.join(labels) if labels else 'keine erkennbar'}</p>"
+
 
         return render_template("result.html", summary=summary)
 
