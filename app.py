@@ -1,134 +1,119 @@
-from flask import Flask, request, jsonify, render_template
-from flask_cors import CORS
-import wikipedia
-import uuid
+from flask import Flask, render_template, request
 import os
-import base64
-import requests
-
-from google.cloud import texttospeech, vision
+import json
+import wikipedia
+from werkzeug.utils import secure_filename
 from PIL import Image
-import io
+from PIL.ExifTags import TAGS, GPSTAGS
 
-# === GOOGLE API SETUP (für Render via Base64) ===
-# === GOOGLE API SETUP ===
-creds_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+app = Flask(__name__)
 
-if creds_b64:
-    print("🛰️ Starte mit Render-Credentials...")
-    creds_json = base64.b64decode(creds_b64).decode("utf-8")
-    with open("google-credentials.json", "w") as f:
-        f.write(creds_json)
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
-else:
-    print("💻 Lokaler Modus – verwende bestehende Datei")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json"
+# Konfiguration
+UPLOAD_FOLDER = "static/uploads"
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "heic"}
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+# Stelle sicher, dass Upload-Verzeichnis existiert
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-tts_client = texttospeech.TextToSpeechClient()
-vision_client = vision.ImageAnnotatorClient()
+# Lade landmarks.json
+with open("landmarks.json", "r", encoding="utf-8") as f:
+    landmarks = json.load(f)
 
-# === FLASK APP ===
-app = Flask(__name__, static_url_path='/static')
-CORS(app)
+# -------------------- Hilfsfunktionen --------------------
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def extract_gps_from_exif(image_path):
+    try:
+        image = Image.open(image_path)
+        exif_data = image._getexif()
+        if not exif_data:
+            return None
+        gps_info = {}
+        for tag, value in exif_data.items():
+            decoded = TAGS.get(tag, tag)
+            if decoded == "GPSInfo":
+                for t in value:
+                    sub_decoded = GPSTAGS.get(t, t)
+                    gps_info[sub_decoded] = value[t]
+        if "GPSLatitude" in gps_info and "GPSLongitude" in gps_info:
+            lat = convert_to_degrees(gps_info["GPSLatitude"])
+            lon = convert_to_degrees(gps_info["GPSLongitude"])
+            return (lat, lon)
+        return None
+    except Exception as e:
+        print(f"EXIF-GPS-Fehler: {e}")
+        return None
+
+def convert_to_degrees(value):
+    d, m, s = value
+    return d[0]/d[1] + m[0]/m[1]/60 + s[0]/s[1]/3600
+
+def find_landmark_by_coords(coords, threshold=0.0005):
+    lat, lon = coords
+    for landmark in landmarks:
+        d_lat = abs(lat - landmark["latitude"])
+        d_lon = abs(lon - landmark["longitude"])
+        if d_lat < threshold and d_lon < threshold:
+            return landmark
+    return None
+
+def find_landmark_by_name(name):
+    for l in landmarks:
+        if l["name"].lower() == name.lower():
+            return l
+    return None
+
+def get_structured_summary(title):
+    try:
+        wikipedia.set_lang("de")
+        summary = wikipedia.summary(title, sentences=5)
+        return f"<h2>{title}</h2><p>{summary}</p>"
+    except Exception as e:
+        return f"<p>Fehler beim Laden der Wikipedia-Zusammenfassung für <strong>{title}</strong>: {str(e)}</p>"
+
+def get_summary_from_vision_or_default(image):
+    # Platzhalter: Vision API oder default summary
+    return "<p>(Vision API-Auswertung kommt hier rein.)</p>"
+
+# -------------------- Flask-Routen --------------------
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("upload.html")
 
-@app.route("/summarize", methods=["POST"])
-def summarize():
-    data = request.get_json()
-    title = data.get("title")
-    lang = data.get("lang", "de")
+@app.route("/upload", methods=["POST"])
+def upload_image():
+    if "image" not in request.files:
+        return "Kein Bild ausgewählt."
 
-    try:
-        wikipedia.set_lang(lang)
-        page = wikipedia.page(title)
-        text = page.content
-        summary = '. '.join(text.split('. ')[:5]) + '.'
+    file = request.files["image"]
+    if file.filename == "":
+        return "Dateiname ist leer."
 
-        filename = generate_tts(summary, lang)
-        return jsonify({"summary": summary, "audio_url": f"/static/audio/{filename}"})
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(filepath)
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        gps_coords = extract_gps_from_exif(filepath)
+        landmark = find_landmark_by_coords(gps_coords) if gps_coords else None
 
-@app.route("/analyze-photo", methods=["POST"])
-def analyze_photo():
-    try:
-        print("🚀 /analyze-photo wurde aufgerufen")
-        lang = request.form.get("lang", "de")
-        file = request.files["photo"]
-        image_bytes = file.read()
+        # NEU: Manuelle Auswahl verarbeiten, falls kein GPS vorhanden
+        manual_landmark = request.form.get("manual_landmark")
+        if not landmark and manual_landmark:
+            landmark = find_landmark_by_name(manual_landmark)
 
-        # 🧪 Debug-Ausgabe hinzufügen
-        print(f"📷 Empfangene Bildgröße: {len(image_bytes)} Bytes")
-        print(f"🧪 Erste 10 Bytes: {image_bytes[:10]}")
+        if landmark:
+            summary = get_structured_summary(landmark["name"])
+        else:
+            summary = get_summary_from_vision_or_default(file)
 
-        detected_title = detect_landmark_with_google(image_bytes)
-        print(f"🔍 Erkanntes Objekt: {detected_title}")
+        return render_template("result.html", summary=summary)
 
-        if not detected_title:
-            return jsonify({"error": "Kein bekanntes Objekt erkannt."}), 404
-
-        wikipedia.set_lang(lang)
-        page = wikipedia.page(detected_title)
-        text = page.content
-        summary = '. '.join(text.split('. ')[:5]) + '.'
-
-        filename = generate_tts(summary, lang)
-        print("✅ Zusammenfassung + Audio fertig")
-        return jsonify({
-            "title": detected_title,
-            "summary": summary,
-            "audio_url": f"/static/audio/{filename}"
-        })
-
-    except Exception as e:
-        print(f"❌ Fehler bei Analyse: {e}")
-        return jsonify({"error": str(e)}), 500
-
-def generate_tts(text, lang):
-    lang_map = {
-        "de": ("de-DE", "de-DE-Wavenet-F"),
-        "en": ("en-US", "en-US-Wavenet-D"),
-        "fr": ("fr-FR", "fr-FR-Wavenet-B"),
-        "es": ("es-ES", "es-ES-Wavenet-A")
-    }
-    tts_lang, tts_voice = lang_map.get(lang, ("de-DE", "de-DE-Wavenet-F"))
-
-    synthesis_input = texttospeech.SynthesisInput(text=text)
-    voice = texttospeech.VoiceSelectionParams(language_code=tts_lang, name=tts_voice)
-    audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.MP3)
-
-    response = tts_client.synthesize_speech(
-        input=synthesis_input, voice=voice, audio_config=audio_config
-    )
-
-    filename = f"{uuid.uuid4().hex}.mp3"
-    path = os.path.join("static", "audio")
-    os.makedirs(path, exist_ok=True)
-    output_path = os.path.join(path, filename)
-    with open(output_path, "wb") as out:
-        out.write(response.audio_content)
-
-    return filename
-
-def detect_landmark_with_google(image_bytes):
-    try:
-        image = vision.Image(content=image_bytes)
-        response = vision_client.landmark_detection(image=image)
-        landmarks = response.landmark_annotations
-        if landmarks:
-            print("🌍 Erkannte Landmarks:")
-            for lm in landmarks:
-                print(f" - {lm.description} (Score: {lm.score})")
-            return landmarks[0].description
-        return None
-    except Exception as e:
-        print(f"❌ Vision API Fehler: {e}")
-        return None
+    return "Ungültiger Dateityp."
 
 if __name__ == "__main__":
     app.run(debug=True)

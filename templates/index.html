@@ -65,6 +65,27 @@
   <button id="lookupBtn">🔍 Per Standort</button>
   <button id="uploadBtn">📷 Foto hochladen</button>
 
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <label for="image">Wähle ein Bild aus:</label>
+    <input type="file" name="image" id="image" required>
+  
+    <br><br>
+  
+    <label for="manual_landmark">📍 Wenn das Bild keine Ortsdaten enthält, wähle den Ort manuell:</label>
+    <select name="manual_landmark" id="manual_landmark">
+      <option value="">– bitte auswählen –</option>
+      <option value="Karlskirche">Karlskirche</option>
+      <option value="Stephansdom">Stephansdom</option>
+      <option value="Wiener Rathaus">Wiener Rathaus</option>
+      <option value="Schloss Schönbrunn">Schloss Schönbrunn</option>
+      <option value="Belvedere">Belvedere</option>
+    </select>
+  
+    <br><br>
+    <button type="submit">Hochladen & analysieren</button>
+  </form>
+  
+
   <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" />
 
   <div id="info"></div>
